@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F3864">
+<title>Horas Consultoría</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--navy:#1F3864;--gr:#7B1E3A;--soft:#EAF1FB;--head:#B4C7E7;--line:#c9d6ec;--ink:#1b2438;--mut:#5b6580;--ok:#2e7d4f;--warn:#b26a00}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Trebuchet MS",Trebuchet,Arial,sans-serif;background:#f6f8fc;color:var(--ink);font-size:16px;-webkit-text-size-adjust:100%}
+header{background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;position:sticky;top:0;z-index:5;border-bottom:3px solid var(--gr)}
+.top{display:flex;align-items:center;gap:8px;max-width:560px;margin:0 auto}
+.top h1{font-size:18px;margin:0;flex:1}
+.chip{font-size:12px;background:rgba(255,255,255,.15);border-radius:12px;padding:3px 9px;white-space:nowrap}
+.btn{border:0;border-radius:10px;padding:11px 14px;font:inherit;font-weight:bold;cursor:pointer}
+.btn.pri{background:var(--gr);color:#fff}
+.btn.sec{background:var(--head);color:var(--navy)}
+.btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.5}
+nav{display:flex;max-width:560px;margin:0 auto;background:#fff;border-bottom:1px solid var(--line)}
+nav button{flex:1;padding:12px 4px;border:0;background:#fff;font:inherit;font-weight:bold;color:var(--mut);border-bottom:3px solid transparent}
+nav button.on{color:var(--navy);border-bottom-color:var(--gr)}
+main{max-width:560px;margin:0 auto;padding:14px}
+section{display:none}
+section.on{display:block}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:10px}
+.row>*{flex:1;min-width:0}
+.rowc{display:flex;gap:8px;align-items:flex-end}
+.rowc select{flex:1}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.run{background:var(--soft);border:1px solid var(--head);border-radius:12px;padding:10px 12px;margin-bottom:12px;color:var(--navy);font-weight:bold;display:none}
+.run.on{display:block}
+.chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:15px;color:var(--ink)}
+.chk input{width:22px;height:22px}
+.actions{display:flex;gap:10px;margin-top:16px}
+.actions .btn{flex:1}
+.tot{display:flex;gap:10px;margin-bottom:12px}
+.tot div{flex:1;background:var(--soft);border-radius:12px;padding:10px;text-align:center}
+.tot b{display:block;font-size:19px;color:var(--gr)}
+.tot span{font-size:12px;color:var(--mut)}
+.item{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .l{flex:1;min-width:0}
+.item .t{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .s{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .v{font-weight:bold;color:var(--navy);white-space:nowrap}
+.st{width:22px;text-align:center}
+.st.ok{color:var(--ok)}.st.pend{color:var(--warn)}
+.x{border:0;background:transparent;color:var(--gr);font-size:18px;padding:4px 8px}
+.empty{color:var(--mut);text-align:center;padding:18px 0}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 16px;border-radius:12px;max-width:90%;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9;text-align:center;font-size:14px}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Horas Consultoría</h1>
+    <span class="chip" id="chip">Sin conectar</span>
+    <button class="btn ghost" id="btnSync">Conectar</button>
+  </div>
+</header>
+<nav>
+  <button data-tab="horas" class="on">Horas</button>
+  <button data-tab="viaticos">Viáticos</button>
+  <button data-tab="registro">Registro</button>
+</nav>
+<main>
+
+<section id="tab-horas" class="on">
+  <div class="run" id="run"></div>
+  <div class="card">
+    <label for="h-cliente" style="margin-top:0">Cliente / Proyecto</label>
+    <div class="rowc">
+      <select id="h-cliente"></select>
+      <button class="btn sec" id="h-nuevo" type="button" title="Nuevo cliente">+</button>
+    </div>
+    <label for="h-tarea">Tarea</label>
+    <input id="h-tarea" placeholder="Ej: Relevamiento, Informe, Reunión" autocomplete="off">
+    <label for="h-desc">Descripción</label>
+    <textarea id="h-desc" placeholder="Qué hiciste (opcional)"></textarea>
+    <label for="h-fecha">Fecha</label>
+    <input id="h-fecha" type="date">
+    <div class="row">
+      <div><label for="h-ini">Inicio</label><input id="h-ini" type="time"></div>
+      <div><label for="h-fin">Fin</label><input id="h-fin" type="time"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="h-fact" checked> Facturable</label>
+    <div class="actions">
+      <button class="btn sec" id="h-start" type="button">▶ Iniciar ahora</button>
+      <button class="btn sec" id="h-stop" type="button">■ Terminar ahora</button>
+    </div>
+    <div class="actions"><button class="btn pri" id="h-save" type="button">Guardar horas</button></div>
+    <div class="note">Si empezaste en otro momento, escribí la hora de inicio a mano.</div>
+  </div>
+</section>
+
+<section id="tab-viaticos">
+  <div class="card">
+    <label for="v-cliente" style="margin-top:0">Cliente / Proyecto</label>
+    <select id="v-cliente"></select>
+    <label for="v-fecha">Fecha</label>
+    <input id="v-fecha" type="date">
+    <label for="v-concepto">Concepto</label>
+    <select id="v-concepto"></select>
+    <label for="v-monto">Monto ($)</label>
+    <input id="v-monto" inputmode="decimal" placeholder="0,00" autocomplete="off">
+    <label for="v-nota">Nota</label>
+    <input id="v-nota" placeholder="Ej: Remis ida y vuelta (opcional)" autocomplete="off">
+    <div class="actions"><button class="btn pri" id="v-save" type="button">Guardar viático</button></div>
+  </div>
+</section>
+
+<section id="tab-registro">
+  <div class="tot">
+    <div><b id="t-horas">0,00</b><span>horas este mes</span></div>
+    <div><b id="t-viat">$ 0</b><span>viáticos este mes</span></div>
+  </div>
+  <div class="card" id="lista"></div>
+  <div class="actions"><button class="btn sec" id="btnBackup" type="button">Descargar respaldo</button></div>
+  <div class="note">✓ ya está en el Excel · ⏳ pendiente de sincronizar. Solo se pueden borrar los pendientes; los ya cargados se corrigen en el Excel.</div>
+</section>
+
+</main>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+const C = window.CONFIG;
+const KEY = "horas.v1", DKEY = "horas.draft.v1", MKEY = "horas.msal";
+const CONCEPTOS = ["Traslado","Combustible","Peaje","Estacionamiento","Comida","Hospedaje","Otros"];
+const SCOPES = ["Files.ReadWrite"];
+const MSAL_URL = "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js";
+const GRAPH = "https://graph.microsoft.com/v1.0";
+const $ = (s) => document.querySelector(s);
+
+/* ---------- estado local ---------- */
+const empty = () => ({ clients: [], horas: [], viaticos: [], pendClients: [] });
+let S = (() => { try { return Object.assign(empty(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { return empty(); } })();
+const save = () => localStorage.setItem(KEY, JSON.stringify(S));
+
+/* ---------- utilidades ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const toMin = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
+const frac = (hm) => toMin(hm) / 1440;
+const toSerial = (ymd) => { const [y, m, d] = ymd.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000) + 25569; };
+const hoursBetween = (a, b) => Math.round((((toMin(b) - toMin(a)) % 1440) + 1440) % 1440 / 60 * 100) / 100;
+const fmtH = (n) => n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtM = (n) => "$ " + n.toLocaleString("es-AR", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+const fmtD = (ymd) => ymd.slice(8, 10) + "/" + ymd.slice(5, 7);
+function parseMoney(s) {
+  s = String(s || "").trim().replace(/\s|\$/g, "");
+  if (!s) return NaN;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  return Number(s);
+}
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3500); }
+const allClients = () => {
+  const seen = new Set(), out = [];
+  [...S.clients, ...S.pendClients].forEach((n) => { const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(n); } });
+  return out.sort((a, b) => a.localeCompare(b, "es"));
+};
+const pending = () => S.horas.filter((x) => !x.synced).length + S.viaticos.filter((x) => !x.synced).length + S.pendClients.length;
+
+/* ---------- borrador del formulario de horas ---------- */
+const FIELDS = { fecha: "#h-fecha", cliente: "#h-cliente", tarea: "#h-tarea", desc: "#h-desc", ini: "#h-ini", fin: "#h-fin" };
+const loadDraft = () => { try { return JSON.parse(localStorage.getItem(DKEY) || "{}"); } catch (e) { return {}; } };
+function saveDraft() {
+  const d = {}; Object.entries(FIELDS).forEach(([k, s]) => d[k] = $(s).value);
+  d.fact = $("#h-fact").checked; localStorage.setItem(DKEY, JSON.stringify(d)); renderRun();
+}
+function applyDraft() {
+  const d = loadDraft();
+  $("#h-fecha").value = d.fecha || todayStr(); $("#h-tarea").value = d.tarea || ""; $("#h-desc").value = d.desc || "";
+  $("#h-ini").value = d.ini || ""; $("#h-fin").value = d.fin || ""; $("#h-fact").checked = d.fact !== false;
+  if (d.cliente) $("#h-cliente").value = d.cliente;
+}
+function renderRun() {
+  const r = $("#run"), ini = $("#h-ini").value, fin = $("#h-fin").value, f = $("#h-fecha").value;
+  if (ini && !fin) {
+    r.classList.add("on");
+    let txt = "⏱ En curso desde las " + ini;
+    if (f === todayStr()) { const m = (((toMin(nowHM()) - toMin(ini)) % 1440) + 1440) % 1440; txt += " · " + Math.floor(m / 60) + " h " + pad(m % 60) + " min"; }
+    r.textContent = txt;
+  } else r.classList.remove("on");
+}
+
+/* ---------- render ---------- */
+function fillSelects() {
+  const names = allClients();
+  ["#h-cliente", "#v-cliente"].forEach((s) => {
+    const el = $(s), cur = el.value;
+    el.innerHTML = '<option value="">— Elegí un cliente —</option>' + names.map((n) => '<option>' + esc(n) + '</option>').join("");
+    if (cur && names.includes(cur)) el.value = cur;
+  });
+  $("#v-concepto").innerHTML = CONCEPTOS.map((c) => '<option>' + c + '</option>').join("");
+}
+function render() {
+  const n = pending();
+  $("#chip").textContent = n ? n + " pendiente" + (n > 1 ? "s" : "") : "Al día";
+  $("#btnSync").textContent = account ? "Sincronizar" : "Conectar";
+  const ym = todayStr().slice(0, 7);
+  $("#t-horas").textContent = fmtH(S.horas.filter((x) => x.fecha.startsWith(ym)).reduce((a, x) => a + x.horas, 0));
+  $("#t-viat").textContent = fmtM(S.viaticos.filter((x) => x.fecha.startsWith(ym)).reduce((a, x) => a + x.monto, 0));
+  const all = [
+    ...S.horas.map((x) => ({ k: "h", x, t: x.tarea || "Horas", v: fmtH(x.horas) + " h", s: x.cliente + " · " + x.ini + "–" + x.fin })),
+    ...S.viaticos.map((x) => ({ k: "v", x, t: x.concepto, v: fmtM(x.monto), s: x.cliente + (x.nota ? " · " + x.nota : "") }))
+  ].sort((a, b) => (b.x.fecha + b.x.creado).localeCompare(a.x.fecha + a.x.creado)).slice(0, 60);
+  $("#lista").innerHTML = all.length ? all.map((e) =>
+    '<div class="item"><span class="st ' + (e.x.synced ? "ok" : "pend") + '">' + (e.x.synced ? "✓" : "⏳") + '</span>' +
+    '<div class="l"><div class="t">' + fmtD(e.x.fecha) + " · " + esc(e.t) + '</div><div class="s">' + esc(e.s) + '</div></div>' +
+    '<div class="v">' + esc(e.v) + '</div>' +
+    (e.x.synced ? "" : '<button class="x" data-del="' + e.k + ":" + e.x.id + '" aria-label="Borrar">✕</button>') + '</div>'
+  ).join("") : '<div class="empty">Todavía no cargaste nada.</div>';
+}
+
+/* ---------- altas ---------- */
+function addClient() {
+  const name = (prompt("Nombre del nuevo cliente / proyecto:") || "").trim();
+  if (!name) return;
+  if (allClients().some((n) => n.toLowerCase() === name.toLowerCase())) { toast("Ese cliente ya existe"); return; }
+  S.pendClients.push(name); save(); fillSelects();
+  $("#h-cliente").value = name; $("#v-cliente").value = name; saveDraft(); render(); autoSync();
+}
+function saveHoras() {
+  const cliente = $("#h-cliente").value, fecha = $("#h-fecha").value, ini = $("#h-ini").value, fin = $("#h-fin").value;
+  if (!cliente) return toast("Elegí un cliente");
+  if (!fecha || !ini || !fin) return toast("Completá fecha, inicio y fin");
+  const horas = hoursBetween(ini, fin);
+  if (horas <= 0) return toast("El inicio y el fin no pueden ser iguales");
+  S.horas.push({ id: uid(), creado: String(Date.now()), fecha, cliente, tarea: $("#h-tarea").value.trim(), desc: $("#h-desc").value.trim(), ini, fin, horas, fact: $("#h-fact").checked, synced: false });
+  save();
+  $("#h-tarea").value = ""; $("#h-desc").value = ""; $("#h-ini").value = ""; $("#h-fin").value = ""; $("#h-fecha").value = todayStr();
+  saveDraft(); render(); toast("Guardado: " + fmtH(horas) + " h"); autoSync();
+}
+function saveViatico() {
+  const cliente = $("#v-cliente").value, fecha = $("#v-fecha").value, monto = parseMoney($("#v-monto").value);
+  if (!cliente) return toast("Elegí un cliente");
+  if (!fecha) return toast("Completá la fecha");
+  if (!(monto > 0)) return toast("Ingresá un monto válido");
+  S.viaticos.push({ id: uid(), creado: String(Date.now()), fecha, cliente, concepto: $("#v-concepto").value, monto, nota: $("#v-nota").value.trim(), synced: false });
+  save(); $("#v-monto").value = ""; $("#v-nota").value = ""; $("#v-fecha").value = todayStr();
+  render(); toast("Viático guardado: " + fmtM(monto)); autoSync();
+}
+
+/* ---------- Microsoft / Excel ---------- */
+let msal = null, account = null, syncing = false;
+const loadScript = (src) => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error("No se pudo cargar el inicio de sesión de Microsoft (¿sin conexión?)")); document.head.appendChild(s); });
+async function ensureMsal() {
+  if (msal) return msal;
+  if (!window.msal) await loadScript(MSAL_URL);
+  const redirectUri = C.redirectUri || (location.origin + location.pathname.replace(/index\.html$/, ""));
+  msal = new window.msal.PublicClientApplication({ auth: { clientId: C.clientId, authority: "https://login.microsoftonline.com/" + C.tenantId, redirectUri }, cache: { cacheLocation: "localStorage" } });
+  if (msal.initialize) await msal.initialize();
+  const r = await msal.handleRedirectPromise();
+  if (r && r.account) msal.setActiveAccount(r.account);
+  const list = msal.getAllAccounts();
+  if (!msal.getActiveAccount() && list.length) msal.setActiveAccount(list[0]);
+  account = msal.getActiveAccount();
+  return msal;
+}
+async function token() {
+  const m = await ensureMsal();
+  if (!account) { localStorage.setItem(MKEY, "1"); await m.loginRedirect({ scopes: SCOPES }); return null; }
+  try { return (await m.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
+  catch (e) { await m.acquireTokenRedirect({ scopes: SCOPES, account }); return null; }
+}
+async function graph(method, url, body, tok) {
+  const r = await fetch(url.startsWith("http") ? url : GRAPH + url, { method, headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { let t = ""; try { t = (await r.json()).error.message; } catch (e) {} throw new Error("Excel (" + r.status + "): " + t); }
+  return r.status === 204 ? null : r.json();
+}
+const tabla = (t) => "/me/drive/root:" + encodeURI(C.excelPath) + ":/workbook/tables/" + encodeURIComponent(t);
+async function sync(manual) {
+  if (syncing) return;
+  if (!account && !manual) return;               // sin sesión no se molesta al usuario
+  if (!navigator.onLine) { if (manual) toast("Sin conexión: queda pendiente"); return; }
+  syncing = true; $("#btnSync").disabled = true;
+  try {
+    const tok = await token(); if (!tok) return;
+    const newClients = S.pendClients.filter((n) => !S.clients.some((c) => c.toLowerCase() === n.toLowerCase()));
+    if (newClients.length) await graph("POST", tabla(C.tablaClientes) + "/rows/add", { index: null, values: newClients.map((n) => [n, ""]) }, tok);
+    S.clients = S.clients.concat(newClients); S.pendClients = []; save();
+    const hs = S.horas.filter((x) => !x.synced);
+    if (hs.length) {
+      await graph("POST", tabla(C.tablaHoras) + "/rows/add", { index: null, values: hs.map((h) => [toSerial(h.fecha), h.cliente, h.tarea, h.desc, frac(h.ini), frac(h.fin), h.horas, h.fact ? "Sí" : "No", h.id]) }, tok);
+      hs.forEach((h) => h.synced = true); save();
+    }
+    const vs = S.viaticos.filter((x) => !x.synced);
+    if (vs.length) {
+      await graph("POST", tabla(C.tablaViaticos) + "/rows/add", { index: null, values: vs.map((v) => [toSerial(v.fecha), v.cliente, v.concepto, v.monto, v.nota, v.id]) }, tok);
+      vs.forEach((v) => v.synced = true); save();
+    }
+    // refrescar lista de clientes desde el Excel
+    let url = tabla(C.tablaClientes) + "/rows", names = [];
+    while (url) { const r = await graph("GET", url, null, tok); names = names.concat(r.value.map((x) => String(x.values[0][0] || "").trim()).filter(Boolean)); url = r["@odata.nextLink"]; }
+    if (names.length) { S.clients = names; save(); }
+    fillSelects(); applyDraft(); render();
+    toast(hs.length + vs.length ? "Excel actualizado ✓" : "Todo al día ✓");
+  } catch (e) { render(); toast(e.message || "No se pudo sincronizar"); }
+  finally { syncing = false; $("#btnSync").disabled = false; }
+}
+const autoSync = () => { if (account && navigator.onLine) sync(false); };
+
+/* ---------- eventos ---------- */
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach((s) => s.classList.toggle("on", s.id === "tab-" + b.dataset.tab));
+}));
+Object.values(FIELDS).concat(["#h-fact"]).forEach((s) => $(s).addEventListener("input", saveDraft));
+$("#h-start").addEventListener("click", () => { $("#h-fecha").value = todayStr(); $("#h-ini").value = nowHM(); $("#h-fin").value = ""; saveDraft(); });
+$("#h-stop").addEventListener("click", () => { if (!$("#h-ini").value) return toast("Primero iniciá o escribí la hora de inicio"); $("#h-fin").value = nowHM(); saveDraft(); });
+$("#h-nuevo").addEventListener("click", addClient);
+$("#h-save").addEventListener("click", saveHoras);
+$("#v-save").addEventListener("click", saveViatico);
+$("#v-monto").addEventListener("blur", (e) => { const n = parseMoney(e.target.value); if (n > 0) e.target.value = n.toLocaleString("es-AR", { maximumFractionDigits: 2 }); });
+$("#btnSync").addEventListener("click", () => sync(true));
+$("#lista").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  const [k, id] = b.dataset.del.split(":");
+  if (!confirm("¿Borrar este registro pendiente?")) return;
+  if (k === "h") S.horas = S.horas.filter((x) => x.id !== id); else S.viaticos = S.viaticos.filter((x) => x.id !== id);
+  save(); render();
+});
+$("#btnBackup").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+  a.download = "respaldo-horas-" + todayStr() + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+window.addEventListener("online", autoSync);
+setInterval(renderRun, 30000);
+
+/* ---------- arranque ---------- */
+$("#v-fecha").value = todayStr();
+fillSelects(); applyDraft(); render(); renderRun();
+if (localStorage.getItem(MKEY) === "1" && navigator.onLine) ensureMsal().then(() => { render(); autoSync(); }).catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+window.__horas = { hoursBetween, toSerial, frac, parseMoney, fmtH, fmtM };
+})();
+</script>
+</body>
+</html>
