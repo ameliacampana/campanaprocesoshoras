@@ -12,6 +12,9 @@ window.CONFIG = {
   tablaViaticos: "tblViaticos",
   tablaClientes: "tblClientes",
 
+  // Carpeta de OneDrive donde se guardan las fotos de reuniones (se crea sola; adentro: cliente / fecha)
+  carpetaFotos: "/Campana Procesos/Fotos reuniones",
+
   // Vacío = usa la dirección donde está publicada la app
   redirectUri: ""
 };

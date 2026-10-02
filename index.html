@@ -56,6 +56,11 @@ textarea{min-height:64px;resize:vertical}
 .st.ok{color:var(--ok)}.st.pend{color:var(--warn)}
 .x{border:0;background:transparent;color:var(--gr);font-size:18px;padding:4px 8px}
 .empty{color:var(--mut);text-align:center;padding:18px 0}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.th{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--soft)}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th .x{position:absolute;top:2px;right:2px;background:rgba(255,255,255,.9);border-radius:50%;width:28px;height:28px;padding:0;line-height:28px}
+input[type=file]{padding:10px;background:var(--soft)}
 .note{font-size:12px;color:var(--mut);margin-top:8px}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 16px;border-radius:12px;max-width:90%;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9;text-align:center;font-size:14px}
 #toast.on{opacity:1}
@@ -72,6 +77,7 @@ textarea{min-height:64px;resize:vertical}
 <nav>
   <button data-tab="horas" class="on">Horas</button>
   <button data-tab="viaticos">Viáticos</button>
+  <button data-tab="fotos">Fotos</button>
   <button data-tab="registro">Registro</button>
 </nav>
 <main>
@@ -120,6 +126,21 @@ textarea{min-height:64px;resize:vertical}
   </div>
 </section>
 
+<section id="tab-fotos">
+  <div class="card">
+    <label for="f-cliente" style="margin-top:0">Cliente / Proyecto</label>
+    <select id="f-cliente"></select>
+    <label for="f-fecha">Fecha de la reunión</label>
+    <input id="f-fecha" type="date">
+    <label for="f-file">Fotos</label>
+    <input id="f-file" type="file" accept="image/*" multiple>
+    <div class="note" id="f-count"></div>
+    <div class="thumbs" id="f-thumbs"></div>
+    <div class="actions"><button class="btn pri" id="f-save" type="button">Guardar fotos</button></div>
+    <div class="note">Podés sacar la foto en el momento o elegirla de la galería. Se achican solas y se guardan en OneDrive, en una carpeta por cliente y fecha.</div>
+  </div>
+</section>
+
 <section id="tab-registro">
   <div class="tot">
     <div><b id="t-horas">0,00</b><span>horas este mes</span></div>
@@ -146,7 +167,7 @@ const GRAPH = "https://graph.microsoft.com/v1.0";
 const $ = (s) => document.querySelector(s);
 
 /* ---------- estado local ---------- */
-const empty = () => ({ clients: [], horas: [], viaticos: [], pendClients: [] });
+const empty = () => ({ clients: [], horas: [], viaticos: [], fotos: [], pendClients: [] });
 let S = (() => { try { return Object.assign(empty(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { return empty(); } })();
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 
@@ -177,7 +198,57 @@ const allClients = () => {
   [...S.clients, ...S.pendClients].forEach((n) => { const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(n); } });
   return out.sort((a, b) => a.localeCompare(b, "es"));
 };
-const pending = () => S.horas.filter((x) => !x.synced).length + S.viaticos.filter((x) => !x.synced).length + S.pendClients.length;
+const pending = () => S.horas.filter((x) => !x.synced).length + S.viaticos.filter((x) => !x.synced).length + S.fotos.filter((x) => !x.synced).length + S.pendClients.length;
+
+/* ---------- fotos: almacenamiento local (IndexedDB) y compresión ---------- */
+const idb = () => new Promise((ok, no) => { const r = indexedDB.open("horas-fotos", 1); r.onupgradeneeded = () => r.result.createObjectStore("fotos", { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+const idbDo = (mode, fn) => idb().then((db) => new Promise((ok, no) => { const tx = db.transaction("fotos", mode); const rq = fn(tx.objectStore("fotos")); tx.oncomplete = () => ok(rq && rq.result); tx.onerror = () => no(tx.error); }));
+const idbPut = (rec) => idbDo("readwrite", (s) => s.put(rec));
+const idbGet = (id) => idbDo("readonly", (s) => s.get(id));
+const idbDel = (id) => idbDo("readwrite", (s) => s.delete(id));
+async function compress(file) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    if (bmp.close) bmp.close();
+    const blob = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.8));
+    if (blob) return blob;
+  } catch (e) { /* cae al archivo original si es chico */ }
+  if (file.type === "image/jpeg" && file.size <= 4 * 1024 * 1024) return file;
+  throw new Error("No se pudo procesar la foto " + file.name);
+}
+let staged = [];
+function renderStaged() {
+  $("#f-thumbs").innerHTML = staged.map((s, i) => '<div class="th"><img src="' + s.url + '" alt=""><button class="x" data-rm="' + i + '" aria-label="Quitar">✕</button></div>').join("");
+  $("#f-count").textContent = staged.length ? staged.length + (staged.length > 1 ? " fotos listas" : " foto lista") : "";
+}
+async function saveFotos() {
+  const cliente = $("#f-cliente").value, fecha = $("#f-fecha").value;
+  if (!cliente) return toast("Elegí un cliente");
+  if (!fecha) return toast("Completá la fecha");
+  if (!staged.length) return toast("Elegí al menos una foto");
+  const d = new Date(), base = pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()), n = staged.length;
+  try {
+    for (let i = 0; i < n; i++) {
+      const id = uid();
+      await idbPut({ id, blob: staged[i].blob });
+      S.fotos.push({ id, creado: String(Date.now() + i), fecha, cliente, name: "reunion_" + fecha + "_" + base + "_" + (i + 1) + ".jpg", synced: false });
+    }
+  } catch (e) { save(); render(); return toast("No se pudieron guardar las fotos en el teléfono"); }
+  staged.forEach((s) => URL.revokeObjectURL(s.url)); staged = [];
+  save(); renderStaged(); render(); toast(n + (n > 1 ? " fotos guardadas" : " foto guardada")); autoSync();
+}
+const safeName = (s) => String(s).replace(/[\\/:*?"<>|#%]/g, "-").replace(/[. ]+$/, "").trim() || "sin-nombre";
+async function uploadFoto(p, blob, tok) {
+  const folder = (C.carpetaFotos || "/Campana Procesos/Fotos reuniones").replace(/\/+$/, "");
+  const path = folder + "/" + safeName(p.cliente) + "/" + p.fecha + "/" + p.name;
+  const url = GRAPH + "/me/drive/root:" + path.split("/").map(encodeURIComponent).join("/") + ":/content?@microsoft.graph.conflictBehavior=rename";
+  const r = await fetch(url, { method: "PUT", headers: { Authorization: "Bearer " + tok, "Content-Type": "image/jpeg" }, body: blob });
+  if (!r.ok) { let t = ""; try { t = (await r.json()).error.message; } catch (e) {} throw new Error("Foto (" + r.status + "): " + t); }
+}
 
 /* ---------- borrador del formulario de horas ---------- */
 const FIELDS = { fecha: "#h-fecha", cliente: "#h-cliente", tarea: "#h-tarea", desc: "#h-desc", ini: "#h-ini", fin: "#h-fin" };
@@ -205,7 +276,7 @@ function renderRun() {
 /* ---------- render ---------- */
 function fillSelects() {
   const names = allClients();
-  ["#h-cliente", "#v-cliente"].forEach((s) => {
+  ["#h-cliente", "#v-cliente", "#f-cliente"].forEach((s) => {
     const el = $(s), cur = el.value;
     el.innerHTML = '<option value="">— Elegí un cliente —</option>' + names.map((n) => '<option>' + esc(n) + '</option>').join("");
     if (cur && names.includes(cur)) el.value = cur;
@@ -221,7 +292,8 @@ function render() {
   $("#t-viat").textContent = fmtM(S.viaticos.filter((x) => x.fecha.startsWith(ym)).reduce((a, x) => a + x.monto, 0));
   const all = [
     ...S.horas.map((x) => ({ k: "h", x, t: x.tarea || "Horas", v: fmtH(x.horas) + " h", s: x.cliente + " · " + x.ini + "–" + x.fin })),
-    ...S.viaticos.map((x) => ({ k: "v", x, t: x.concepto, v: fmtM(x.monto), s: x.cliente + (x.nota ? " · " + x.nota : "") }))
+    ...S.viaticos.map((x) => ({ k: "v", x, t: x.concepto, v: fmtM(x.monto), s: x.cliente + (x.nota ? " · " + x.nota : "") })),
+    ...S.fotos.map((x) => ({ k: "f", x, t: "Foto de reunión", v: "📷", s: x.cliente + " · " + x.name }))
   ].sort((a, b) => (b.x.fecha + b.x.creado).localeCompare(a.x.fecha + a.x.creado)).slice(0, 60);
   $("#lista").innerHTML = all.length ? all.map((e) =>
     '<div class="item"><span class="st ' + (e.x.synced ? "ok" : "pend") + '">' + (e.x.synced ? "✓" : "⏳") + '</span>' +
@@ -308,12 +380,21 @@ async function sync(manual) {
       await graph("POST", tabla(C.tablaViaticos) + "/rows/add", { index: null, values: vs.map((v) => [toSerial(v.fecha), v.cliente, v.concepto, v.monto, v.nota, v.id]) }, tok);
       vs.forEach((v) => v.synced = true); save();
     }
+    // fotos de reuniones: se suben a OneDrive (carpeta por cliente y fecha)
+    const fs = S.fotos.filter((x) => !x.synced);
+    let subidas = 0;
+    for (const p of fs) {
+      const rec = await idbGet(p.id).catch(() => null);
+      if (!rec || !rec.blob) { S.fotos = S.fotos.filter((x) => x !== p); save(); continue; }   // el archivo local ya no existe
+      await uploadFoto(p, rec.blob, tok);
+      p.synced = true; subidas++; await idbDel(p.id).catch(() => {}); save();
+    }
     // refrescar lista de clientes desde el Excel
     let url = tabla(C.tablaClientes) + "/rows", names = [];
     while (url) { const r = await graph("GET", url, null, tok); names = names.concat(r.value.map((x) => String(x.values[0][0] || "").trim()).filter(Boolean)); url = r["@odata.nextLink"]; }
     if (names.length) { S.clients = names; save(); }
     fillSelects(); applyDraft(); render();
-    toast(hs.length + vs.length ? "Excel actualizado ✓" : "Todo al día ✓");
+    toast(hs.length + vs.length + subidas ? "Excel y OneDrive actualizados ✓" : "Todo al día ✓");
   } catch (e) { render(); toast(e.message || "No se pudo sincronizar"); }
   finally { syncing = false; $("#btnSync").disabled = false; }
 }
@@ -330,13 +411,28 @@ $("#h-stop").addEventListener("click", () => { if (!$("#h-ini").value) return to
 $("#h-nuevo").addEventListener("click", addClient);
 $("#h-save").addEventListener("click", saveHoras);
 $("#v-save").addEventListener("click", saveViatico);
+$("#f-save").addEventListener("click", saveFotos);
+$("#f-file").addEventListener("change", async (e) => {
+  const files = [...e.target.files]; e.target.value = "";
+  for (const f of files) {
+    try { const blob = await compress(f); staged.push({ blob, url: URL.createObjectURL(blob) }); }
+    catch (err) { toast(err.message); }
+  }
+  renderStaged();
+});
+$("#f-thumbs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-rm]"); if (!b) return;
+  const [s] = staged.splice(Number(b.dataset.rm), 1); if (s) URL.revokeObjectURL(s.url); renderStaged();
+});
 $("#v-monto").addEventListener("blur", (e) => { const n = parseMoney(e.target.value); if (n > 0) e.target.value = n.toLocaleString("es-AR", { maximumFractionDigits: 2 }); });
 $("#btnSync").addEventListener("click", () => sync(true));
 $("#lista").addEventListener("click", (e) => {
   const b = e.target.closest("[data-del]"); if (!b) return;
   const [k, id] = b.dataset.del.split(":");
   if (!confirm("¿Borrar este registro pendiente?")) return;
-  if (k === "h") S.horas = S.horas.filter((x) => x.id !== id); else S.viaticos = S.viaticos.filter((x) => x.id !== id);
+  if (k === "h") S.horas = S.horas.filter((x) => x.id !== id);
+  else if (k === "f") { S.fotos = S.fotos.filter((x) => x.id !== id); idbDel(id).catch(() => {}); }
+  else S.viaticos = S.viaticos.filter((x) => x.id !== id);
   save(); render();
 });
 $("#btnBackup").addEventListener("click", () => {
@@ -348,7 +444,7 @@ window.addEventListener("online", autoSync);
 setInterval(renderRun, 30000);
 
 /* ---------- arranque ---------- */
-$("#v-fecha").value = todayStr();
+$("#v-fecha").value = todayStr(); $("#f-fecha").value = todayStr();
 fillSelects(); applyDraft(); render(); renderRun();
 if (localStorage.getItem(MKEY) === "1" && navigator.onLine) ensureMsal().then(() => { render(); autoSync(); }).catch(() => {});
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

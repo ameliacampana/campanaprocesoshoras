@@ -26,6 +26,12 @@ Si no hay internet, queda pendiente y se sube sola cuando vuelve la conexión.
 1. Abrí la dirección en el celular → "Instalar app" / "Agregar a pantalla de inicio".
 2. Tocá **Conectar**, iniciá sesión con tu cuenta de Microsoft. Desde ahí, cada vez que guardes algo se sube al Excel.
 
+## Fotos de reuniones
+- Pestaña **Fotos**: elegís cliente y fecha, sacás o elegís las fotos y tocás **Guardar fotos**.
+- Se achican solas (lado mayor 1600 px) y se suben a OneDrive en
+  `Campana Procesos/Fotos reuniones/<Cliente>/<AAAA-MM-DD>/` (las carpetas se crean solas; se cambia en `config.js` → `carpetaFotos`).
+- Sin conexión quedan guardadas en el teléfono y se suben al volver internet.
+
 ## Notas
 - Los registros ya subidos no se pueden editar desde la app: corregilos en el Excel.
 - "Descargar respaldo" baja una copia de todo lo cargado en el teléfono.

@@ -1,5 +1,5 @@
 // Service worker: la app abre y permite cargar horas sin conexión.
-const CACHE = "horas-v1";
+const CACHE = "horas-v2";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
